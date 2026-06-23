@@ -147,7 +147,7 @@ const isSatiraRound = (r) => r % 3 === 2;
 
 // ─── API CALL ─────────────────────────────────────────────────────────────────
 async function callClaude(messages, maxTokens = 900) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch("/.netlify/functions/claude", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({model:"claude-sonnet-4-6", max_tokens:maxTokens, messages}),
