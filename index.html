@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sobreviva ao Mandato 🇧🇷</title>
+  <meta name="description" content="Simulador político satírico. Tome decisões impossíveis e tente sobreviver 4 anos como presidente do Brasil." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { min-height: 100%; }
+    body { background: #0a0a12; font-family: 'Inter', system-ui, sans-serif; color: #F1F5F9; }
+    input::placeholder { color: #334155; }
+    input:focus { outline: none; }
+    button { font-family: 'Inter', system-ui, sans-serif; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes shrink { from{width:100%} to{width:0%} }
+    @keyframes pulse { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel">
+const { useState, useCallback, useEffect } = React;
+
+// ─── OUTLET THEMES ────────────────────────────────────────────────────────────
+const OUTLETS = {
+  "Folha de S.Paulo": {
+    bg:"#fff", headerBg:"#000", titleColor:"#111", bodyColor:"#444",
+    border:"1px solid #ccc", font:"Georgia, serif",
+    tagBg:"#000", tagColor:"#fff", breaking:"URGENTE",
+    logoText:"FOLHA DE S.PAULO", logoFont:"Georgia, serif",
+  },
+  "Globo": {
+    bg:"#fff", headerBg:"#003087", titleColor:"#003087", bodyColor:"#555",
+    border:"1px solid #ddd", font:"Arial, sans-serif",
+    tagBg:"#E30613", tagColor:"#fff", breaking:"AO VIVO",
+    logoText:"globo.com", logoFont:"Arial, sans-serif",
+  },
+  "GloboNews": {
+    bg:"#0a0a14", headerBg:"#E30613", titleColor:"#fff", bodyColor:"#aaa",
+    border:"1px solid #1a1a2e", font:"Arial, sans-serif",
+    tagBg:"#E30613", tagColor:"#fff", breaking:"🔴 AO VIVO",
+    logoText:"GLOBONEWS", logoFont:"Arial Black, sans-serif",
+  },
+  "Jovem Pan": {
+    bg:"#12050a", headerBg:"#E8001C", titleColor:"#fff", bodyColor:"#ccc",
+    border:"1px solid #2a0010", font:"Arial Black, sans-serif",
+    tagBg:"#FFD600", tagColor:"#000", breaking:"⚡ BREAKING",
+    logoText:"JOVEM PAN", logoFont:"Arial Black, sans-serif",
+  },
+  "CNN Brasil": {
+    bg:"#fff", headerBg:"#CC0000", titleColor:"#CC0000", bodyColor:"#333",
+    border:"1px solid #eee", font:"Arial, sans-serif",
+    tagBg:"#CC0000", tagColor:"#fff", breaking:"BREAKING NEWS",
+    logoText:"CNN BRASIL", logoFont:"Arial Black, sans-serif",
+  },
+  "UOL": {
+    bg:"#fff", headerBg:"#1400C8", titleColor:"#1400C8", bodyColor:"#444",
+    border:"1px solid #ddd", font:"Verdana, sans-serif",
+    tagBg:"#FF6600", tagColor:"#fff", breaking:"URGENTE",
+    logoText:"UOL", logoFont:"Arial Black, sans-serif",
+  },
+  "The Intercept Brasil": {
+    bg:"#0d0d0d", headerBg:"#0d0d0d", titleColor:"#fff", bodyColor:"#888",
+    border:"1px solid #1a1a1a", font:"Georgia, serif",
+    tagBg:"transparent", tagColor:"#e8ff00", breaking:"EXCLUSIVO",
+    logoText:"THE INTERCEPT_", logoFont:"Georgia, serif", tagBorder:"1px solid #e8ff00",
+  },
+  "Metrópoles": {
+    bg:"#fff", headerBg:"#7C3AED", titleColor:"#111", bodyColor:"#555",
+    border:"1px solid #ede9fe", font:"Arial, sans-serif",
+    tagBg:"#7C3AED", tagColor:"#fff", breaking:"EXCLUSIVO",
+    logoText:"metrópoles", logoFont:"Arial, sans-serif",
+  },
+  "Twitter/X": {
+    bg:"#000", headerBg:"#000", titleColor:"#e7e9ea", bodyColor:"#71767b",
+    border:"1px solid #2f3336", font:"Arial, sans-serif",
+    tagBg:"#1d9bf0", tagColor:"#fff", breaking:"TRENDING",
+    logoText:"𝕏", logoFont:"serif",
+  },
+  "Band News": {
+    bg:"#fff", headerBg:"#003DA5", titleColor:"#003DA5", bodyColor:"#333",
+    border:"1px solid #ddd", font:"Arial, sans-serif",
+    tagBg:"#FF0000", tagColor:"#fff", breaking:"AO VIVO",
+    logoText:"BAND NEWS", logoFont:"Arial Black, sans-serif",
+  },
+  "R7": {
+    bg:"#fff", headerBg:"#E8000D", titleColor:"#E8000D", bodyColor:"#333",
+    border:"1px solid #eee", font:"Arial, sans-serif",
+    tagBg:"#000", tagColor:"#fff", breaking:"URGENTE",
+    logoText:"R7", logoFont:"Arial Black, sans-serif",
+  },
+};
+const OUTLET_NAMES = Object.keys(OUTLETS);
+
+// ─── AVATARS ──────────────────────────────────────────────────────────────────
+const AVATARS = [
+  {id:"operario", label:"O Operário", face:{skin:"#8B5A2B",hair:"#1a1a1a",beard:true,beardColor:"#1a1a1a",cap:null,hairStyle:"bald-top"}},
+  {id:"capitao", label:"O Capitão", face:{skin:"#C68642",hair:"#4a3728",beard:false,cap:"military",hairStyle:"short"}},
+  {id:"companheira", label:"A Companheira", face:{skin:"#C0896A",hair:"#3d2314",beard:false,cap:null,hairStyle:"bob"}},
+  {id:"discreto", label:"O Discreto", face:{skin:"#D4A574",hair:"#e8e8e8",beard:false,cap:null,hairStyle:"white-side"}},
+  {id:"outsider", label:"A Outsider", face:{skin:"#7B5EA7",hair:"#2d1b69",beard:false,cap:null,hairStyle:"curly"}},
+  {id:"custom", label:"Você mesmo", face:{skin:"#E8B89A",hair:"#2c1810",beard:false,cap:null,hairStyle:"wavy"}},
+];
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const IDEOLOGIES = [
+  {id:"esquerda", label:"Esquerda", color:"#EF4444", icon:"✊", desc:"PT · PSOL · PDT"},
+  {id:"centro", label:"Centro", color:"#FBBF24", icon:"⚖️", desc:"MDB · PSDB · União"},
+  {id:"direita", label:"Direita", color:"#3B82F6", icon:"🦁", desc:"PL · PP · Republicanos"},
+];
+const TREATMENTS = [
+  {id:"senhor_presidente", label:"Senhor Presidente"},
+  {id:"senhora_presidente", label:"Senhora Presidente"},
+  {id:"excelencia", label:"Vossa Excelência"},
+  {id:"nome", label:"Só o nome"},
+];
+const INITIAL_STATS = {aprovacao:55, congresso:50, economia:60, imprensa:45};
+const STAT_META = {
+  aprovacao:{label:"Povo", icon:"👥", color:"#22C55E"},
+  congresso:{label:"Congresso", icon:"🏛️", color:"#3B82F6"},
+  economia:{label:"Economia", icon:"💰", color:"#FBBF24"},
+  imprensa:{label:"Mídia", icon:"📺", color:"#A855F7"},
+};
+const GAMEOVER = {
+  aprovacao:{title:"IMPEACHMENT!", sub:"O povo foi às ruas. Você foi deposto ao vivo na Globo.", emoji:"😡"},
+  congresso:{title:"CASSAÇÃO!", sub:"Votação: 450 a 0. Até seu vice votou contra você.", emoji:"🔨"},
+  economia:{title:"FUGA PARA MIAMI!", sub:"Dólar a R$25. Você pegou o avião antes da PF chegar.", emoji:"✈️"},
+  imprensa:{title:"PRESO!", sub:"Moraes decretou sua prisão ao vivo no Jornal Nacional.", emoji:"⛓️"},
+  vitoria:{title:"MANDATO CUMPRIDO!", sub:"4 anos sobrevivendo ao caos brasileiro. Lenda.", emoji:"🏆"},
+};
+const POWER_CARDS = [
+  {id:"discurso", icon:"🎤", label:"Discurso Épico", desc:"+15 Povo +10 Mídia", effects:{aprovacao:15,imprensa:10}},
+  {id:"pacote", icon:"💸", label:"Bolsa Tudo", desc:"+20 Povo −10 Eco", effects:{aprovacao:20,economia:-10}},
+  {id:"acordo", icon:"🤝", label:"Toma Lá Dá Cá", desc:"+18 Cong −8 Mídia", effects:{congresso:18,imprensa:-8}},
+];
+const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const isSatiraRound = (r) => r % 3 === 2;
+
+// ─── API CALL ─────────────────────────────────────────────────────────────────
+async function callClaude(messages, maxTokens = 900) {
+  const res = await fetch("/api/claude", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model:"claude-sonnet-4-6", max_tokens:maxTokens, messages}),
+  });
+  const data = await res.json();
+  const text = data.content?.find(b => b.type === "text")?.text || "";
+  return JSON.parse(text.replace(/```json|```/g,"").trim());
+}
+
+// ─── AVATAR HEAD ──────────────────────────────────────────────────────────────
+function AvatarHead({face, size=72, selected=false}) {
+  const s = size;
+  const hairMap = {
+    "bald-top": null,
+    "short": `radial-gradient(ellipse 90% 38% at 50% 0%, ${face.hair} 60%, transparent 100%)`,
+    "bob": `radial-gradient(ellipse 115% 58% at 50% -5%, ${face.hair} 52%, transparent 100%)`,
+    "white-side": `radial-gradient(ellipse 75% 28% at 18% 8%, ${face.hair} 65%, transparent 100%), radial-gradient(ellipse 75% 28% at 82% 8%, ${face.hair} 65%, transparent 100%)`,
+    "curly": `radial-gradient(ellipse 125% 65% at 50% -12%, ${face.hair} 48%, transparent 100%)`,
+    "wavy": `radial-gradient(ellipse 105% 48% at 50% 0%, ${face.hair} 53%, transparent 100%)`,
+  };
+  return (
+    <div style={{
+      position:"relative", width:s, height:s, borderRadius:"50%", flexShrink:0,
+      background:`radial-gradient(circle at 33% 33%, ${face.skin}ff 0%, ${face.skin}bb 60%, ${face.skin}77 100%)`,
+      boxShadow: selected
+        ? `0 0 0 2.5px #FBBF24, 0 6px 20px rgba(0,0,0,0.5), inset -3px -4px 10px rgba(0,0,0,0.28)`
+        : `0 3px 12px rgba(0,0,0,0.4), inset -3px -4px 10px rgba(0,0,0,0.25)`,
+      overflow:"hidden", transition:"box-shadow 0.18s",
+    }}>
+      {face.hairStyle !== "bald-top" && hairMap[face.hairStyle] && (
+        <div style={{position:"absolute",inset:0,background:hairMap[face.hairStyle],borderRadius:"50%"}} />
+      )}
+      <div style={{position:"absolute",top:"37%",left:"23%",width:s*0.13,height:s*0.1,background:"#111",borderRadius:"50%"}} />
+      <div style={{position:"absolute",top:"37%",right:"23%",width:s*0.13,height:s*0.1,background:"#111",borderRadius:"50%"}} />
+      <div style={{position:"absolute",top:"51%",left:"45%",width:s*0.1,height:s*0.09,background:`${face.skin}55`,borderRadius:"50%",boxShadow:"inset 1px 1px 3px rgba(0,0,0,0.3)"}} />
+      <div style={{position:"absolute",top:"64%",left:"33%",width:"34%",height:s*0.07,background:"#7a3a1888",borderRadius:"0 0 50% 50%"}} />
+      {face.beard && <div style={{position:"absolute",bottom:"12%",left:"18%",right:"18%",height:"30%",background:`${face.beardColor}cc`,borderRadius:"0 0 50% 50%"}} />}
+      {face.cap === "military" && (
+        <div style={{position:"absolute",top:"-5%",left:"-6%",right:"-6%",height:"34%",background:"#2d5a27",borderRadius:"50% 50% 0 0",zIndex:2}}>
+          <div style={{position:"absolute",bottom:0,left:"-12%",right:"-12%",height:"28%",background:"#1a3d1a"}} />
+        </div>
+      )}
+      <div style={{position:"absolute",top:"10%",left:"18%",width:"28%",height:"18%",background:"rgba(255,255,255,0.16)",borderRadius:"50%",filter:"blur(3px)"}} />
+    </div>
+  );
+}
+
+// ─── STAT BAR ─────────────────────────────────────────────────────────────────
+function StatBar({k, value}) {
+  const m = STAT_META[k];
+  const pct = Math.max(0, Math.min(100, value));
+  const color = pct > 40 ? m.color : pct > 20 ? "#F59E0B" : "#EF4444";
+  return (
+    <div style={{flex:1, minWidth:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#64748B",marginBottom:3}}>
+        <span>{m.icon} {m.label}</span>
+        <span style={{color,fontWeight:700}}>{Math.round(pct)}</span>
+      </div>
+      <div style={{background:"#1E293B",borderRadius:3,height:5}}>
+        <div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:3,transition:"width 0.5s ease, background 0.3s"}} />
+      </div>
+    </div>
+  );
+}
+
+// ─── SCENARIO CARD ────────────────────────────────────────────────────────────
+function ScenarioCard({scenario, dateLabel}) {
+  if (!scenario) return null;
+  const name = scenario.fonte || "UOL";
+  const o = OUTLETS[name] || OUTLETS["UOL"];
+  const isTwitter = name === "Twitter/X";
+  return (
+    <div style={{width:"100%",borderRadius:10,overflow:"hidden",background:o.bg,border:o.border,fontFamily:o.font,animation:"fadeUp 0.3s ease",marginBottom:10}}>
+      <div style={{background:o.headerBg,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontFamily:o.logoFont,fontWeight:900,fontSize:13,color:"#fff",letterSpacing:1}}>{o.logoText}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{
+            background:o.tagBg, color:o.tagColor, fontSize:9, padding:"2px 8px",
+            borderRadius:2, fontWeight:800, letterSpacing:2, textTransform:"uppercase",
+            border:o.tagBorder||"none",
+          }}>{o.breaking}</span>
+          <span style={{fontSize:9,color:"#ffffff44"}}>{dateLabel}</span>
+        </div>
+      </div>
+      {isTwitter ? (
+        <div style={{padding:"12px 14px"}}>
+          <div style={{display:"flex",gap:10}}>
+            <div style={{width:38,height:38,borderRadius:"50%",background:"#222",border:"1px solid #333",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>
+              {scenario.twitterEmoji || "🐦"}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>{scenario.twitterUser || "Político BR"}</div>
+              <div style={{fontSize:11,color:"#555",marginBottom:7}}>@{scenario.twitterHandle || "politicobr"} · agora</div>
+              <div style={{fontSize:14,color:"#e7e9ea",lineHeight:1.55}}>{scenario.situacao}</div>
+              <div style={{fontSize:11,color:"#555",marginTop:8,display:"flex",gap:16}}>
+                <span>💬 {scenario.twitterReplies||"842"}</span>
+                <span>🔁 {scenario.twitterRt||"12k"}</span>
+                <span>❤️ {scenario.twitterLikes||"38k"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{padding:"12px 14px"}}>
+          <div style={{fontSize:15,fontWeight:800,color:o.titleColor,lineHeight:1.3,marginBottom:6}}>{scenario.titulo}</div>
+          <div style={{fontSize:12,color:o.bodyColor,lineHeight:1.5}}>{scenario.situacao}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── REACTION POPUP ───────────────────────────────────────────────────────────
+function ReactionPopup({reaction, onDone}) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 4500);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  if (!reaction) return null;
+  const isPos = reaction.sentimento === "apoio";
+  return (
+    <div style={{
+      position:"fixed",bottom:24,right:16,maxWidth:290,zIndex:1000,
+      background:"#0F172A",border:`1px solid ${isPos?"#22C55E44":"#EF444444"}`,
+      borderRadius:14,padding:"12px 14px",boxShadow:"0 8px 32px rgba(0,0,0,0.7)",
+      animation:"slideIn 0.3s cubic-bezier(.22,1,.36,1)",
+    }}>
+      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+        <div style={{width:36,height:36,borderRadius:"50%",background:"#111",border:"1px solid #2f3336",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{fontSize:15,fontWeight:900,color:"#fff",fontFamily:"serif"}}>𝕏</span>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:1}}>
+            <span style={{fontSize:12,fontWeight:700,color:"#F1F5F9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{reaction.nome}</span>
+            {reaction.verificado && <span style={{color:"#1d9bf0",fontSize:11,flexShrink:0}}>✓</span>}
+          </div>
+          <div style={{fontSize:9,color:"#475569",marginBottom:6}}>@{reaction.handle} · {reaction.cargo}</div>
+          <div style={{fontSize:12,color:isPos?"#86EFAC":"#FCA5A5",lineHeight:1.4}}>{reaction.comentario}</div>
+          <div style={{fontSize:9,color:"#334155",marginTop:6,display:"flex",gap:12}}>
+            <span>💬 {reaction.replies}</span><span>🔁 {reaction.rt}</span><span>❤️ {reaction.likes}</span>
+          </div>
+        </div>
+      </div>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:2,background:"#1E293B",borderRadius:"0 0 14px 14px"}}>
+        <div style={{height:"100%",background:isPos?"#22C55E":"#EF4444",borderRadius:"0 0 14px 14px",animation:"shrink 4.5s linear forwards"}} />
+      </div>
+    </div>
+  );
+}
+
+// ─── POWER CARD ───────────────────────────────────────────────────────────────
+function PowerCardBtn({card, used, onUse, disabled}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={() => !used && !disabled && onUse(card)}
+      disabled={used||disabled}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flex:1, background:used?"#090f1a":"linear-gradient(135deg,#1E293B,#162032)",
+        border:`1px solid ${hov&&!used&&!disabled?"#FBBF24":used?"#111827":"#334155"}`,
+        borderRadius:10, padding:"10px 5px", cursor:used||disabled?"default":"pointer",
+        opacity:used?0.3:1, transition:"all 0.2s", textAlign:"center",
+      }}
+    >
+      <div style={{fontSize:20}}>{card.icon}</div>
+      <div style={{fontSize:10,color:used?"#1E293B":"#E2E8F0",fontWeight:700,marginTop:3}}>{card.label}</div>
+      <div style={{fontSize:9,color:"#475569",marginTop:1}}>{card.desc}</div>
+    </button>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const [phase, setPhase] = useState("onboarding");
+  const [profile, setProfile] = useState({name:"", treatment:"senhor_presidente", avatar:AVATARS[0], ideology:null});
+  const [stats, setStats] = useState(INITIAL_STATS);
+  const [round, setRound] = useState(0);
+  const [month, setMonth] = useState(0);
+  const [scenario, setScenario] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [gameOverKey, setGameOverKey] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [usedCards, setUsedCards] = useState([]);
+  const [reaction, setReaction] = useState(null);
+
+  const getTreatment = () => {
+    if (profile.treatment === "nome") return profile.name || "Presidente";
+    const t = TREATMENTS.find(t => t.id === profile.treatment);
+    return `${t?.label}${profile.name ? " " + profile.name : ""}`;
+  };
+
+  const fetchScenario = useCallback(async (currentStats, currentHistory, ideology, roundNum) => {
+    setLoading(true); setScenario(null);
+    const ideoLabel = IDEOLOGIES.find(i => i.id === ideology)?.label || "Centro";
+    const histText = currentHistory.slice(-2).map(h => h.choice).join("; ") || "início do mandato";
+    const tipo = isSatiraRound(roundNum) ? "SATIRA" : "SERIO";
+    const satiraSuffix = tipo === "SATIRA"
+      ? "ROUND DE SÁTIRA — seja absurdo e engraçado! Use personagens reais: Janja (stories polêmicos), Nicolas Ferreira (tuites às 3h), Arthur Lira, Alexandre de Moraes (abrindo inquérito por qualquer coisa), Bolsonaro, Sergio Moro, General Heleno, Marcos do Val, Eduardo Bolsonaro, Paulo Guedes, Gleisi Hoffmann. Exemplos: Janja postou roupa nova e causou crise diplomática. Nicolas tweetou às 3h18 que o presidente é comunista. Moraes abriu inquérito por excesso de boa vontade. Deputado votou errado porque estava no TikTok."
+      : "ROUND SÉRIO — situação realista do Brasil: economia, saúde, seca, educação, relações internacionais, segurança pública, reforma tributária, desmatamento, etc.";
+    const prompt = `Jogo político satírico — presidente ${ideoLabel} do Brasil.
+Stats: Povo ${Math.round(currentStats.aprovacao)}%, Congresso ${Math.round(currentStats.congresso)}%, Economia ${Math.round(currentStats.economia)}%, Mídia ${Math.round(currentStats.imprensa)}%
+Histórico: ${histText}
+Tipo: ${tipo} — ${satiraSuffix}
+Veículo: escolha UM de: ${OUTLET_NAMES.join(", ")}
+Se Twitter/X: adicione twitterUser, twitterHandle, twitterEmoji, twitterReplies, twitterRt, twitterLikes.
+Responda APENAS JSON válido sem markdown:
+{"titulo":"manchete (max 9 palavras)","situacao":"1 frase curta (max 22 palavras)","fonte":"nome exato do veículo","twitterUser":null,"twitterHandle":null,"twitterEmoji":null,"twitterReplies":null,"twitterRt":null,"twitterLikes":null,"escolhas":[{"texto":"ação A (max 9 palavras)","efeitos":{"aprovacao":0,"congresso":0,"economia":0,"imprensa":0},"resultado":"5 palavras"},{"texto":"ação B (max 9 palavras)","efeitos":{"aprovacao":0,"congresso":0,"economia":0,"imprensa":0},"resultado":"5 palavras"},{"texto":"ação C (max 9 palavras)","efeitos":{"aprovacao":0,"congresso":0,"economia":0,"imprensa":0},"resultado":"5 palavras"}]}
+Efeitos: −18 a +18. Nenhuma opção perfeita.`;
+    try {
+      const data = await callClaude([{role:"user",content:prompt}]);
+      setScenario(data);
+    } catch {
+      setScenario({
+        titulo:"Nicolas tweetou às 3h17 de novo",
+        situacao:"O deputado chamou o presidente de inimigo da pátria sem motivo aparente.",
+        fonte:"Twitter/X", twitterUser:"Nicolas Ferreira 🦁", twitterHandle:"nicolasferreiraDEM",
+        twitterEmoji:"🦁", twitterReplies:"3.2k", twitterRt:"28k", twitterLikes:"91k",
+        escolhas:[
+          {texto:"Ignorar e fingir que está dormindo",efeitos:{aprovacao:3,congresso:-4,economia:0,imprensa:-8},resultado:"Tweet virou meme nacional."},
+          {texto:"Responder no mesmo nível às 3h18",efeitos:{aprovacao:10,congresso:-10,economia:0,imprensa:5},resultado:"Povo adorou. Congresso preocupado."},
+          {texto:"Ligar pro pai do Nicolas",efeitos:{aprovacao:15,congresso:5,economia:0,imprensa:12},resultado:"Virou o político mais humano."},
+        ],
+      });
+    }
+    setLoading(false);
+  }, []);
+
+  const fetchReaction = async (choiceText, effects, ideology) => {
+    const ideoLabel = IDEOLOGIES.find(i => i.id === ideology)?.label || "Centro";
+    const isGoodForPeople = (effects.aprovacao || 0) > 0;
+    const prompt = `Gere uma reação rápida no Twitter de um personagem político brasileiro real à decisão do presidente ${ideoLabel}.
+Decisão: "${choiceText}"
+Tom: ${isGoodForPeople ? "oposição criticando" : "aliado defendendo"}. Curto, autêntico, pode ter humor.
+Responda APENAS JSON válido:
+{"nome":"Nome completo","handle":"handle_sem_arroba","cargo":"Cargo · Partido-UF","verificado":true,"sentimento":"${isGoodForPeople?"critica":"apoio"}","comentario":"comentário max 18 palavras","replies":"1.2k","rt":"4.8k","likes":"11k"}`;
+    try {
+      const data = await callClaude([{role:"user",content:prompt}], 300);
+      setReaction(data);
+    } catch {
+      setReaction({nome:"Nicolas Ferreira",handle:"nicolasferreiraDEM",cargo:"Deputado Federal · PL-DF",verificado:true,sentimento:"critica",comentario:"Isso aqui é um escândalo! Farei uma live às 2h explicando tudo. 🇧🇷",replies:"1.2k",rt:"8.4k",likes:"22k"});
+    }
+  };
+
+  const startGame = () => {
+    setStats(INITIAL_STATS); setRound(0); setMonth(0);
+    setHistory([]); setUsedCards([]); setGameOverKey(null); setScenario(null); setReaction(null);
+    setPhase("playing");
+    fetchScenario(INITIAL_STATS, [], profile.ideology, 0);
+  };
+
+  const applyEffects = async (effects, label) => {
+    if (resolving) return;
+    setResolving(true); setReaction(null);
+    const newStats = {};
+    let failKey = null;
+    for (const k of Object.keys(stats)) {
+      const v = Math.max(0, Math.min(100, stats[k] + (effects[k]||0)));
+      newStats[k] = v;
+      if (v <= 0 && !failKey) failKey = k;
+    }
+    const newHistory = [...history, {choice:label}];
+    const newRound = round + 1;
+    const newMonth = (month + 3) % 12;
+    setStats(newStats); setHistory(newHistory); setRound(newRound); setMonth(newMonth);
+    fetchReaction(label, effects, profile.ideology);
+    await new Promise(r => setTimeout(r, 700));
+    if (failKey) { setGameOverKey(failKey); setPhase("gameover"); setResolving(false); return; }
+    if (newRound >= 16) { setGameOverKey("vitoria"); setPhase("gameover"); setResolving(false); return; }
+    setResolving(false);
+    fetchScenario(newStats, newHistory, profile.ideology, newRound);
+  };
+
+  const useCard = (card) => {
+    if (usedCards.includes(card.id)||resolving||loading) return;
+    setUsedCards(p => [...p, card.id]);
+    applyEffects(card.effects, card.label);
+  };
+
+  const ideoColor = IDEOLOGIES.find(i => i.id === profile.ideology)?.color || "#FBBF24";
+  const dateLabel = `${MONTHS[month]} ${2027+Math.floor(round/4)} · ${Math.floor(round/4)+1}º ano`;
+  const BASE = {minHeight:"100vh",fontFamily:"'Inter', system-ui, sans-serif",color:"#F1F5F9",display:"flex",flexDirection:"column",alignItems:"center"};
+
+  // ── ONBOARDING ────────────────────────────────────────────────────────────────
+  if (phase === "onboarding") {
+    const canStart = profile.name.trim().length > 0 && !!profile.ideology;
+    return (
+      <div style={{...BASE, background:"#0a0a12", justifyContent:"center", padding:"24px 16px"}}>
+        <div style={{textAlign:"center",marginBottom:26}}>
+          <div style={{fontSize:38,marginBottom:6}}>🇧🇷</div>
+          <div style={{fontSize:9,letterSpacing:5,color:"#1E293B",textTransform:"uppercase",marginBottom:4}}>Simulador Político Satírico</div>
+          <h1 style={{fontSize:"clamp(30px,9vw,54px)",fontWeight:900,lineHeight:0.9,letterSpacing:-2}}>
+            <span style={{color:"#FBBF24"}}>SOBREVIVA</span><br/>
+            <span style={{color:"#1E293B",fontSize:"0.42em",fontWeight:400,letterSpacing:4}}>AO MANDATO</span>
+          </h1>
+        </div>
+        <div style={{width:"100%",maxWidth:430,display:"flex",flexDirection:"column",gap:16}}>
+          <div>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>Seu sobrenome</div>
+            <input value={profile.name} onChange={e => setProfile(p=>({...p,name:e.target.value}))}
+              placeholder="Ex: Silva, Temer, Bolsonaro..." maxLength={20}
+              style={{width:"100%",background:"#0F172A",border:"1px solid #1E293B",borderRadius:8,padding:"11px 14px",color:"#F1F5F9",fontSize:14,fontFamily:"inherit",transition:"border-color 0.15s"}}
+              onFocus={e=>e.target.style.borderColor="#FBBF24"} onBlur={e=>e.target.style.borderColor="#1E293B"} />
+          </div>
+          <div>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>Como quer ser chamado(a)?</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {TREATMENTS.map(t => (
+                <button key={t.id} onClick={()=>setProfile(p=>({...p,treatment:t.id}))} style={{
+                  background:profile.treatment===t.id?"#FBBF24":"#0F172A",
+                  color:profile.treatment===t.id?"#0a0a12":"#475569",
+                  border:"1px solid",borderColor:profile.treatment===t.id?"#FBBF24":"#1E293B",
+                  borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:700,
+                  cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s",
+                }}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>Sua ideologia</div>
+            <div style={{display:"flex",gap:7}}>
+              {IDEOLOGIES.map(i => (
+                <button key={i.id} onClick={()=>setProfile(p=>({...p,ideology:i.id}))} style={{
+                  flex:1, background:profile.ideology===i.id?i.color+"18":"#0F172A",
+                  border:"1px solid", borderColor:profile.ideology===i.id?i.color:"#1E293B",
+                  borderRadius:10, padding:"11px 5px", cursor:"pointer", transition:"all 0.15s", textAlign:"center",
+                }}>
+                  <div style={{fontSize:22}}>{i.icon}</div>
+                  <div style={{fontSize:11,fontWeight:800,color:profile.ideology===i.id?i.color:"#475569",marginTop:4}}>{i.label}</div>
+                  <div style={{fontSize:9,color:"#1E293B",marginTop:2}}>{i.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>Avatar</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {AVATARS.map(av => (
+                <button key={av.id} onClick={()=>setProfile(p=>({...p,avatar:av}))} style={{background:"transparent",border:"none",cursor:"pointer",textAlign:"center",padding:3}}>
+                  <AvatarHead face={av.face} size={48} selected={profile.avatar.id===av.id} />
+                  <div style={{fontSize:9,color:profile.avatar.id===av.id?"#FBBF24":"#1E293B",marginTop:3,fontWeight:700}}>{av.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          {canStart && (
+            <div style={{background:"#0F172A",border:"1px solid #1E293B",borderRadius:10,padding:12,display:"flex",alignItems:"center",gap:11,animation:"fadeUp 0.25s ease"}}>
+              <AvatarHead face={profile.avatar.face} size={44} selected />
+              <div>
+                <div style={{fontSize:9,color:"#1E293B"}}>Presidindo como</div>
+                <div style={{fontSize:14,fontWeight:800,color:"#F1F5F9"}}>{getTreatment()}</div>
+                <div style={{fontSize:10,color:ideoColor,marginTop:2}}>{IDEOLOGIES.find(i=>i.id===profile.ideology)?.icon} {IDEOLOGIES.find(i=>i.id===profile.ideology)?.label}</div>
+              </div>
+            </div>
+          )}
+          <button onClick={startGame} disabled={!canStart} style={{
+            width:"100%", background:canStart?"linear-gradient(90deg,#92400E,#FBBF24)":"#0F172A",
+            color:canStart?"#000":"#1E293B", border:"none", borderRadius:10,
+            padding:"14px", fontSize:14, fontWeight:900, cursor:canStart?"pointer":"default",
+            letterSpacing:2, fontFamily:"inherit",
+          }}>TOMAR POSSE →</button>
+          <div style={{fontSize:9,color:"#1a2535",textAlign:"center"}}>Sátira política. Qualquer semelhança com a realidade é proposital.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GAME OVER ─────────────────────────────────────────────────────────────────
+  if (phase === "gameover") {
+    const go = GAMEOVER[gameOverKey];
+    const isWin = gameOverKey === "vitoria";
+    return (
+      <div style={{...BASE,background:isWin?"#050f08":"#0f0508",justifyContent:"center",padding:24,textAlign:"center"}}>
+        <AvatarHead face={profile.avatar.face} size={68} />
+        <div style={{fontSize:50,margin:"12px 0 6px"}}>{go.emoji}</div>
+        <h1 style={{fontSize:"clamp(22px,7vw,44px)",fontWeight:900,color:isWin?"#22C55E":"#EF4444",marginBottom:5}}>{go.title}</h1>
+        <p style={{color:"#334155",fontSize:12,marginBottom:5}}>{getTreatment()}</p>
+        <p style={{color:"#475569",fontSize:13,marginBottom:22,maxWidth:320,lineHeight:1.6}}>{go.sub}</p>
+        <div style={{background:"#0F172A",border:"1px solid #1E293B",borderRadius:12,padding:16,marginBottom:22,width:"100%",maxWidth:320}}>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {Object.keys(stats).map(k => <StatBar key={k} k={k} value={stats[k]} />)}
+          </div>
+          <div style={{marginTop:11,fontSize:10,color:"#1E293B"}}>
+            {round} trimestres · {Math.floor(round*3/12)} anos e {(round*3)%12} meses no poder
+          </div>
+        </div>
+        <button onClick={()=>setPhase("onboarding")} style={{
+          background:"#0F172A",color:"#64748B",border:"1px solid #1E293B",borderRadius:10,
+          padding:"12px 32px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+        }}>🔄 Jogar de novo</button>
+      </div>
+    );
+  }
+
+  // ── PLAYING ───────────────────────────────────────────────────────────────────
+  const isSatira = isSatiraRound(round);
+  return (
+    <div style={{...BASE,background:"#0a0a12",padding:"14px 12px 40px"}}>
+      <div style={{width:"100%",maxWidth:520,display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+        <AvatarHead face={profile.avatar.face} size={34} />
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#E2E8F0"}}>{getTreatment()}</div>
+          <div style={{fontSize:10,color:ideoColor}}>{IDEOLOGIES.find(i=>i.id===profile.ideology)?.icon} {IDEOLOGIES.find(i=>i.id===profile.ideology)?.label}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:10,color:"#334155"}}>{dateLabel}</div>
+          {isSatira && <div style={{fontSize:9,color:"#FBBF2488"}}>😂 modo caos</div>}
+        </div>
+      </div>
+
+      <div style={{width:"100%",maxWidth:520,background:"#0F172A",border:"1px solid #1E293B",borderRadius:10,padding:"10px 13px",marginBottom:10,display:"flex",gap:12}}>
+        {Object.keys(stats).map(k => <StatBar key={k} k={k} value={stats[k]} />)}
+      </div>
+
+      <div style={{width:"100%",maxWidth:520,marginBottom:10}}>
+        <div style={{fontSize:9,color:"#1E293B",letterSpacing:3,textTransform:"uppercase",marginBottom:5}}>⚡ Cartas de Poder</div>
+        <div style={{display:"flex",gap:6}}>
+          {POWER_CARDS.map(c => <PowerCardBtn key={c.id} card={c} used={usedCards.includes(c.id)} onUse={useCard} disabled={resolving||loading} />)}
+        </div>
+      </div>
+
+      <div style={{width:"100%",maxWidth:520}}>
+        {loading ? (
+          <div style={{background:"#0F172A",border:"1px solid #1E293B",borderRadius:10,padding:"24px 20px",textAlign:"center",marginBottom:10}}>
+            <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:7}}>
+              {[0,1,2].map(i => <div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#FBBF24",animation:`pulse 0.9s ${i*0.25}s infinite`}} />)}
+            </div>
+            <div style={{fontSize:11,color:"#1E293B"}}>{isSatira?"Preparando o caos...":"Assessor preparando relatório..."}</div>
+          </div>
+        ) : scenario && <ScenarioCard scenario={scenario} dateLabel={dateLabel} />}
+      </div>
+
+      {scenario && !loading && (
+        <div style={{width:"100%",maxWidth:520}}>
+          <div style={{fontSize:9,color:"#1E293B",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>
+            O que você faz, {profile.name||"Presidente"}?
+          </div>
+          {scenario.escolhas.map((ch, i) => (
+            <ChoiceButton key={i} ch={ch} i={i} ideoColor={ideoColor} resolving={resolving} onChoose={applyEffects} />
+          ))}
+        </div>
+      )}
+
+      {reaction && <ReactionPopup reaction={reaction} onDone={()=>setReaction(null)} />}
+    </div>
+  );
+}
+
+function ChoiceButton({ch, i, ideoColor, resolving, onChoose}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      disabled={resolving}
+      onClick={() => onChoose(ch.efeitos, ch.texto)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width:"100%", background:hov&&!resolving?ideoColor+"0d":"#0F172A",
+        border:`1px solid ${hov&&!resolving?ideoColor:"#1E293B"}`,
+        borderRadius:8, padding:"11px 13px", cursor:resolving?"not-allowed":"pointer",
+        textAlign:"left", display:"flex", alignItems:"center", gap:10,
+        transition:"all 0.15s", opacity:resolving?0.6:1, fontFamily:"inherit", marginBottom:6,
+      }}
+    >
+      <span style={{background:ideoColor+"20",color:ideoColor,borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:800,flexShrink:0}}>{String.fromCharCode(65+i)}</span>
+      <span style={{fontSize:13,color:"#CBD5E1",lineHeight:1.3}}>{ch.texto}</span>
+    </button>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
